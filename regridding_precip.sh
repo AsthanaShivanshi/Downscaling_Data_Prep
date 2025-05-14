@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=conservative_regridding_RhiresD    
+#SBATCH --job-name=conservative_regridding_precipitation  
 #SBATCH --output=job_output-%j.txt 
 #SBATCH --error=job_error-%j.txt  
 #SBATCH --ntasks=1              
@@ -15,4 +15,3 @@ source /work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/MyPythonEnvironment/bi
 cd /work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep
 
 python /work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/remapcon_RhiresD_to_12.py
-python /work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/remapcon_TabsD_to_12.py
