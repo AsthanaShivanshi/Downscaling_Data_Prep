@@ -4,7 +4,7 @@ input= "/work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscali
 output = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/RhiresD_12_km_regridded.nc"
 grid = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/cordex_grid_CH.txt"
 
-# Build the command
+
 command = [
     "cdo",
     f"remapcon,{grid}",

@@ -21,6 +21,6 @@ def filter_wet_days(file1, file2, output_path,var_1, var_2, threshold=0.1):
     # Masking based on threshold
     mask = var1 >= threshold 
 
-    filtered_var2 = np.where(mask, var2, np.nan) #Else set to NaN
+    filtered_var2 = np.where(mask, var2, np.nan) #All grid cells will be set to NaN at timesteps when it is below the threshold
 
     filtered_var2.to_netcdf(output_path, filtered_var2)

@@ -4,7 +4,7 @@ input= "/work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscali
 output = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/TabsD_12_km_regridded.nc"
 grid = "/work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/cordex_grid_CH.txt"
 
-# Build the command
+# Command for regridding : First order conservative remapping using YAC weights 
 command = [
     "cdo",
     f"remapcon,{grid}",

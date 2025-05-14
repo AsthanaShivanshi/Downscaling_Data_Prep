@@ -8,7 +8,6 @@ def cell_corners_computation(lat, lon):
     lat_bounds = np.zeros((ny + 1, nx + 1))
     lon_bounds = np.zeros((ny + 1, nx + 1))
 
-    # Interior corners
     lat_bounds[1:-1, 1:-1] = 0.25 * (
         lat[0:-1, 0:-1] + lat[0:-1, 1:] +
         lat[1:, 0:-1] + lat[1:, 1:]
@@ -18,7 +17,7 @@ def cell_corners_computation(lat, lon):
         lon[1:, 0:-1] + lon[1:, 1:]
     )
 
-    # Edge extrapolation
+    #  extrapolation of the edges of the grid cells
     lat_bounds[0, :] = lat_bounds[1, :]
     lat_bounds[-1, :] = lat_bounds[-2, :]
     lat_bounds[:, 0] = lat_bounds[:, 1]
@@ -34,7 +33,7 @@ def cell_corners_computation(lat, lon):
 def compute_per_cell_vertices(lat_b, lon_b):
     ny = lat_b.shape[0] - 1
     nx = lat_b.shape[1] - 1
-    nv = 4  # number of vertices per cell
+    nv = 4  # four vertices for neach grid cell 
 
     lat_vertices = np.zeros((ny, nx, nv))
     lon_vertices = np.zeros((ny, nx, nv))
