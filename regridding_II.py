@@ -1,100 +1,109 @@
 import xarray as xr
 import numpy as np
 
-def coarsen_file_conservatively(
+def conservative_coarsening(
     infile,
     varname,
-    block_size,
+    block_size, #For NxN downsampling 
     outfile=None,
     latname='lat',
-    lonname='lon'
-):
+    lonname='lon'):
     """
-    Coarsens a 2D or 3D variable in a NetCDF file using area-weighted averaging.
+    Coarsens a 2D or 3D variable using grid-aware logic.
+
+    - For projected grids (dimensions E/N), uses arithmetic mean (equal area).
+    - For geographic grids (lat/lon), uses area-weighted averaging (cos(lat)).
 
     Parameters:
         infile: str
-            Path to the input NetCDF file
+            Path to the NetCDF input file.
         varname: str
-            Name of the variable to coarsen
+            Name of variable to coarsen.
         block_size: int
-            Coarsening factor (N x N block size)
+            Coarsening factor (NxN).
         outfile: str (optional)
-            If provided, output file to write coarsened data
-        latname: str
-            Name of latitude variable (default 'lat')
-        lonname: str
-            Name of longitude variable (default 'lon')
+            Output NetCDF file.
+        latname, lonname: str
+            Names of latitude and longitude variables.
 
     Returns:
-        xr.DataArray of coarsened variable
+        Coarsened xarray.DataArray.
     """
 
-    # Load dataset
     ds = xr.open_dataset(infile)
-    var = ds[varname]
-    lat = ds[latname].values
-    lon = ds[lonname].values
+    da = ds[varname]
 
-    if lat.shape != var.shape[-2:] or lon.shape != var.shape[-2:]:
-        raise ValueError("lat/lon shape must match variable spatial shape")
+    dims = da.dims
+    has_time = 'time' in dims #Covering bases in case it has time., Our case, for each case, has time
 
-    # Trim to make divisible
-    ny, nx = lat.shape
-    nlat_block, nlon_block = block_size, block_size
-    ny_trim = (ny // nlat_block) * nlat_block
-    nx_trim = (nx // nlon_block) * nlon_block
+    # E/N grid
+    if 'E' in dims and 'N' in dims:
+        print("projected grid (E/N) ,, using simple arithmetic mean over every NxN block")
+        da_coarse = da.coarsen(N=block_size, E=block_size, boundary='pad').mean() #Alternatives : pad, trim or exact. 
 
-    var = var[..., :ny_trim, :nx_trim]
-    lat = lat[:ny_trim, :nx_trim]
-    lon = lon[:ny_trim, :nx_trim]
+        #.coarsen() from xarray used to downsample by grouping it into coarser blocks and applying an aggr function
 
-    R = 6371000
-    dlat = np.deg2rad(np.diff(lat[:, 0]).mean())
-    dlon = np.deg2rad(np.diff(lon[0, :]).mean())
-    area = (R ** 2) * dlat * dlon * np.cos(np.deg2rad(lat))
 
-    # Add time dim if needed
-    has_time = 'time' in var.dims
-    if not has_time:
-        var = var.expand_dims('time')
+    # curvilinear grid
+    elif latname in ds and lonname in ds:
+        print("Detected curvilinear,, using area-weighted averging")
+        lat = ds[latname].values
+        lon = ds[lonname].values
+        var = da
 
-    data = var.values
-    area_blocks = area.reshape(ny_trim // nlat_block, nlat_block,
-                               nx_trim // nlon_block, nlon_block)
+        if lat.shape != var.shape[-2:] or lon.shape != var.shape[-2:]:
+            raise ValueError("lat/lon shape must match last 2 dims")
 
-    # Reshape to blocks
-    var_blocks = data.reshape(data.shape[0],
-                              ny_trim // nlat_block, nlat_block,
-                              nx_trim // nlon_block, nlon_block)
+        ny, nx = lat.shape
+        ny_trim = (ny // block_size) * block_size
+        nx_trim = (nx // block_size) * block_size
 
-    # Weighted sum
-    weighted = (var_blocks * area_blocks).sum(axis=(2, 4))
-    total_area = area_blocks.sum(axis=(1, 3))
-    coarsened_data = weighted / total_area
+        var = var[..., :ny_trim, :nx_trim]
+        lat = lat[:ny_trim, :nx_trim]
+        lon = lon[:ny_trim, :nx_trim]
 
-    # Coarsen coordinates
-    lat_coarse = lat.reshape(ny_trim // nlat_block, nlat_block,
-                             nx_trim // nlon_block, nlon_block).mean(axis=(1, 3))
-    lon_coarse = lon.reshape(ny_trim // nlat_block, nlat_block,
-                             nx_trim // nlon_block, nlon_block).mean(axis=(1, 3))
+        # Area weights via cos(lat)
+        R = 6371000
+        dlat = np.deg2rad(np.diff(lat[:, 0]).mean())
+        dlon = np.deg2rad(np.diff(lon[0, :]).mean())
+        area = (R**2) * dlat * dlon * np.cos(np.deg2rad(lat))
 
-    coords = {
-        'lat': (['y', 'x'], lat_coarse),
-        'lon': (['y', 'x'], lon_coarse)
-    }
+        if not has_time:
+            var = var.expand_dims('time')
 
-    if has_time:
-        coords['time'] = var['time']
-        dims = ('time', 'y', 'x')
-    else:
-        coarsened_data = coarsened_data.squeeze()
-        dims = ('y', 'x')
+        data = var.values
+        area_blocks = area.reshape(ny_trim // block_size, block_size,
+                                   nx_trim // block_size, block_size)
 
-    da_out = xr.DataArray(coarsened_data, coords=coords, dims=dims, name=varname)
+        var_blocks = data.reshape(
+            data.shape[0],
+            ny_trim // block_size, block_size,
+            nx_trim // block_size, block_size
+        )
 
-    # Optional save to NetCDF
+        weighted = (var_blocks * area_blocks).sum(axis=(2, 4))
+        total_area = area_blocks.sum(axis=(1, 3))
+        data_coarse = weighted / total_area
+
+        lat_coarse = lat.reshape(ny_trim // block_size, block_size,
+                                 nx_trim // block_size, block_size).mean(axis=(1, 3))
+        lon_coarse = lon.reshape(ny_trim // block_size, block_size,
+                                 nx_trim // block_size, block_size).mean(axis=(1, 3))
+
+        coords = {
+            'lat': (['y', 'x'], lat_coarse),
+            'lon': (['y', 'x'], lon_coarse)
+        }
+        if has_time:
+            coords['time'] = var['time']
+            dims = ('time', 'y', 'x')
+        else:
+            data_coarse = data_coarse.squeeze()
+            dims = ('y', 'x')
+
+        da_coarse = xr.DataArray(data_coarse, coords=coords, dims=dims, name=varname)
+
     if outfile:
-        da_out.to_netcdf(outfile)
+        da_coarse.to_netcdf(outfile)
 
-    return da_out
+    return da_coarse
