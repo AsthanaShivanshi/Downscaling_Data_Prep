@@ -7,7 +7,8 @@ def conservative_coarsening(
     block_size,
     outfile=None,
     latname='lat',
-    lonname='lon'):
+    lonname='lon'
+):
     ds = xr.open_dataset(infile)
     da = ds[varname]
 
@@ -19,7 +20,8 @@ def conservative_coarsening(
         da_coarse = da.coarsen(N=block_size, E=block_size, boundary='pad').mean()
 
     elif latname in ds and lonname in ds:
-        print(f"{varname}: Curvilinear grid detected, using area-weighted averaging.")
+        print(f"{varname}: Curvilinear grid detected, using area-weighted averaging with padding.")
+
         lat = ds[latname].values
         lon = ds[lonname].values
         var = da
@@ -28,43 +30,58 @@ def conservative_coarsening(
             raise ValueError("lat/lon shape must match last two dimensions of variable")
 
         ny, nx = lat.shape
-        ny_trim = (ny // block_size) * block_size
-        nx_trim = (nx // block_size) * block_size
 
-        var = var[..., :ny_trim, :nx_trim]
-        lat = lat[:ny_trim, :nx_trim]
-        lon = lon[:ny_trim, :nx_trim]
+        # Calculate padding needed
+        ny_pad = (block_size - ny % block_size) % block_size
+        nx_pad = (block_size - nx % block_size) % block_size
 
-        R = 6371000
+        print(f"Padded from ({ny}, {nx}) to ({ny + ny_pad}, {nx + nx_pad})")
+
+        # Pad variable using edge values
+        var = var.pad(
+            {var.dims[-2]: (0, ny_pad), var.dims[-1]: (0, nx_pad)},
+            mode='edge'
+        )
+        lat = np.pad(lat, ((0, ny_pad), (0, nx_pad)), mode='edge')
+        lon = np.pad(lon, ((0, ny_pad), (0, nx_pad)), mode='edge')
+
+        ny_padded, nx_padded = lat.shape
+
+        # Calculate area of each grid cell
+        R = 6371000  # Earth radius in meters
         dlat = np.deg2rad(np.diff(lat[:, 0]).mean())
         dlon = np.deg2rad(np.diff(lon[0, :]).mean())
-        area = (R**2) * dlat * dlon * np.cos(np.deg2rad(lat))
+        area = (R ** 2) * dlat * dlon * np.cos(np.deg2rad(lat))
 
         if not has_time:
             var = var.expand_dims('time')
 
         data = var.values
-        area_blocks = area.reshape(ny_trim // block_size, block_size,
-                                   nx_trim // block_size, block_size)
+
+        # Reshape for block averaging
+        area_blocks = area.reshape(ny_padded // block_size, block_size,
+                                   nx_padded // block_size, block_size)
         var_blocks = data.reshape(
             data.shape[0],
-            ny_trim // block_size, block_size,
-            nx_trim // block_size, block_size
+            ny_padded // block_size, block_size,
+            nx_padded // block_size, block_size
         )
 
         weighted = (var_blocks * area_blocks).sum(axis=(2, 4))
         total_area = area_blocks.sum(axis=(1, 3))
         data_coarse = weighted / total_area
 
-        lat_coarse = lat.reshape(ny_trim // block_size, block_size,
-                                 nx_trim // block_size, block_size).mean(axis=(1, 3))
-        lon_coarse = lon.reshape(ny_trim // block_size, block_size,
-                                 nx_trim // block_size, block_size).mean(axis=(1, 3))
+        # Compute new coarse lat/lon
+        lat_coarse = lat.reshape(ny_padded // block_size, block_size,
+                                 nx_padded // block_size, block_size).mean(axis=(1, 3))
+        lon_coarse = lon.reshape(ny_padded // block_size, block_size,
+                                 nx_padded // block_size, block_size).mean(axis=(1, 3))
 
         coords = {
             'lat': (['y', 'x'], lat_coarse),
             'lon': (['y', 'x'], lon_coarse)
         }
+
         if has_time:
             coords['time'] = var['time']
             dims = ('time', 'y', 'x')
@@ -73,6 +90,7 @@ def conservative_coarsening(
             dims = ('y', 'x')
 
         da_coarse = xr.DataArray(data_coarse, coords=coords, dims=dims, name=varname)
+
     else:
         raise ValueError("Could not detect grid type")
 
@@ -81,7 +99,8 @@ def conservative_coarsening(
 
     return da_coarse
 
-# Perform the coarsening on all four datasets
+# === Usage for your 4 datasets ===
+
 datasets = [
     ("RhiresD_1971_2023.nc", "RhiresD", "RhiresD_011deg_coarsened.nc"),
     ("TabsD_1971_2023.nc", "TabsD", "TabsD_011deg_coarsened.nc"),

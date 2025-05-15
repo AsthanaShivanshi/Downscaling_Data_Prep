@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+#Didnt work but worth keeping : creating artificial cell boundaries 
 import xarray as xr
 import numpy as np
 
