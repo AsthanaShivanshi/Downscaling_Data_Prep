@@ -4,55 +4,28 @@ import numpy as np
 def conservative_coarsening(
     infile,
     varname,
-    block_size, #For NxN downsampling 
+    block_size,
     outfile=None,
     latname='lat',
     lonname='lon'):
-    """
-    Coarsens a 2D or 3D variable using grid-aware logic.
-
-    - For projected grids (dimensions E/N), uses arithmetic mean (equal area).
-    - For geographic grids (lat/lon), uses area-weighted averaging (cos(lat)).
-
-    Parameters:
-        infile: str
-            Path to the NetCDF input file.
-        varname: str
-            Name of variable to coarsen.
-        block_size: int
-            Coarsening factor (NxN).
-        outfile: str (optional)
-            Output NetCDF file.
-        latname, lonname: str
-            Names of latitude and longitude variables.
-
-    Returns:
-        Coarsened xarray.DataArray.
-    """
-
     ds = xr.open_dataset(infile)
     da = ds[varname]
 
     dims = da.dims
-    has_time = 'time' in dims #Covering bases in case it has time., Our case, for each case, has time
+    has_time = 'time' in dims
 
-    # E/N grid
     if 'E' in dims and 'N' in dims:
-        print("projected grid (E/N) ,, using simple arithmetic mean over every NxN block")
-        da_coarse = da.coarsen(N=block_size, E=block_size, boundary='pad').mean() #Alternatives : pad, trim or exact. 
+        print(f"{varname}: Projected grid (E/N), using arithmetic mean over {block_size}x{block_size} blocks.")
+        da_coarse = da.coarsen(N=block_size, E=block_size, boundary='pad').mean()
 
-        #.coarsen() from xarray used to downsample by grouping it into coarser blocks and applying an aggr function
-
-
-    # curvilinear grid
     elif latname in ds and lonname in ds:
-        print("Detected curvilinear,, using area-weighted averging")
+        print(f"{varname}: Curvilinear grid detected, using area-weighted averaging.")
         lat = ds[latname].values
         lon = ds[lonname].values
         var = da
 
         if lat.shape != var.shape[-2:] or lon.shape != var.shape[-2:]:
-            raise ValueError("lat/lon shape must match last 2 dims")
+            raise ValueError("lat/lon shape must match last two dimensions of variable")
 
         ny, nx = lat.shape
         ny_trim = (ny // block_size) * block_size
@@ -62,7 +35,6 @@ def conservative_coarsening(
         lat = lat[:ny_trim, :nx_trim]
         lon = lon[:ny_trim, :nx_trim]
 
-        # Area weights via cos(lat)
         R = 6371000
         dlat = np.deg2rad(np.diff(lat[:, 0]).mean())
         dlon = np.deg2rad(np.diff(lon[0, :]).mean())
@@ -74,7 +46,6 @@ def conservative_coarsening(
         data = var.values
         area_blocks = area.reshape(ny_trim // block_size, block_size,
                                    nx_trim // block_size, block_size)
-
         var_blocks = data.reshape(
             data.shape[0],
             ny_trim // block_size, block_size,
@@ -102,8 +73,21 @@ def conservative_coarsening(
             dims = ('y', 'x')
 
         da_coarse = xr.DataArray(data_coarse, coords=coords, dims=dims, name=varname)
+    else:
+        raise ValueError("Could not detect grid type")
 
     if outfile:
         da_coarse.to_netcdf(outfile)
 
     return da_coarse
+
+# Perform the coarsening on all four datasets
+datasets = [
+    ("RhiresD_1971_2023.nc", "RhiresD", "RhiresD_011deg_coarsened.nc"),
+    ("TabsD_1971_2023.nc", "TabsD", "TabsD_011deg_coarsened.nc"),
+    ("TminD_1971_2023.nc", "TminD", "TminD_011deg_coarsened.nc"),
+    ("TmaxD_1971_2023.nc", "TmaxD", "TmaxD_011deg_coarsened.nc")
+]
+
+for infile, varname, outfile in datasets:
+    conservative_coarsening(infile, varname, block_size=11, outfile=outfile)
