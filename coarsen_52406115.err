@@ -1,0 +1,4 @@
+cdi  error (cdf__create): Bicubic_Baselines/bicubic_rhiresd.nc: Permission denied
+cdi  error (cdf__create): Bicubic_Baselines/bicubic_tabsd.nc: Permission denied
+cdi  error (cdf__create): Bicubic_Baselines/bicubic_tmax.nc: Permission denied
+cdi  error (cdf__create): Bicubic_Baselines/bicubic_tmind.nc: Permission denied
