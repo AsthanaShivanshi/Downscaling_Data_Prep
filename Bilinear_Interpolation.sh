@@ -7,6 +7,7 @@
 #SBATCH --mem=32G
 #SBATCH --time=3-00:00:00
 
+source ../Variable_Config_Scripts/env_filepaths_bilinear.sh
 cd "$BASE_DIR"
 module load cdo
 

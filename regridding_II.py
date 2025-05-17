@@ -1,5 +1,13 @@
 import xarray as xr
 import numpy as np
+import os
+import sys
+
+sys.path.append("../Variable_Config_Scripts")
+
+from regridding_II_config import INPUT_DIR, OUTPUT_DIR
+
+
 
 def conservative_coarsening(
     infile,
@@ -58,7 +66,7 @@ def conservative_coarsening(
 
         data = var.values
 
-        # Reshape for block averaging
+        # Reshaping for block averaging
         area_blocks = area.reshape(ny_padded // block_size, block_size,
                                    nx_padded // block_size, block_size)
         var_blocks = data.reshape(
@@ -71,7 +79,7 @@ def conservative_coarsening(
         total_area = area_blocks.sum(axis=(1, 3))
         data_coarse = weighted / total_area
 
-        # Compute new coarse lat/lon
+        # new coarse lat/lon
         lat_coarse = lat.reshape(ny_padded // block_size, block_size,
                                  nx_padded // block_size, block_size).mean(axis=(1, 3))
         lon_coarse = lon.reshape(ny_padded // block_size, block_size,
@@ -99,7 +107,6 @@ def conservative_coarsening(
 
     return da_coarse
 
-# === Usage for your 4 datasets ===
 
 datasets = [
     ("RhiresD_1971_2023.nc", "RhiresD", "RhiresD_011deg_coarsened.nc"),
@@ -109,4 +116,6 @@ datasets = [
 ]
 
 for infile, varname, outfile in datasets:
-    conservative_coarsening(infile, varname, block_size=11, outfile=outfile)
+    infile_path=os.path.join(INPUT_DIR,infile)
+    outfile_path=os.path.join(OUTPUT_DIR,outfile)
+    conservative_coarsening(infile, varname, block_size=11, outfile=outfile_path)
