@@ -39,13 +39,13 @@ def conservative_coarsening(
 
         ny, nx = lat.shape
 
-        # Calculate padding needed
+        # Calculate padding: NEEDED
         ny_pad = (block_size - ny % block_size) % block_size
         nx_pad = (block_size - nx % block_size) % block_size
 
         print(f"Padded from ({ny}, {nx}) to ({ny + ny_pad}, {nx + nx_pad})")
 
-        # Pad variable using edge values
+        # Padding variable using edge values
         var = var.pad(
             {var.dims[-2]: (0, ny_pad), var.dims[-1]: (0, nx_pad)},
             mode='edge'
@@ -55,8 +55,8 @@ def conservative_coarsening(
 
         ny_padded, nx_padded = lat.shape
 
-        # Calculate area of each grid cell
-        R = 6371000  # Earth radius in meters
+        # Calculating area of each grid cell
+        R = 6371000  # Earth radius (approx) in meters  https://en.wikipedia.org/wiki/Earth_radius
         dlat = np.deg2rad(np.diff(lat[:, 0]).mean())
         dlon = np.deg2rad(np.diff(lon[0, :]).mean())
         area = (R ** 2) * dlat * dlon * np.cos(np.deg2rad(lat))
@@ -79,7 +79,7 @@ def conservative_coarsening(
         total_area = area_blocks.sum(axis=(1, 3))
         data_coarse = weighted / total_area
 
-        # new coarse lat/lon
+        # new lat/lon (COARSE)
         lat_coarse = lat.reshape(ny_padded // block_size, block_size,
                                  nx_padded // block_size, block_size).mean(axis=(1, 3))
         lon_coarse = lon.reshape(ny_padded // block_size, block_size,
