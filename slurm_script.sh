@@ -7,15 +7,14 @@
 #SBATCH --mem=32G
 #SBATCH --time=3-00:00:00
 
-# Load micromamba module from your HPC
+source ../Variables_Config_Scripts/Slurm_Env_Path.sh
+
 module load micromamba
 
-# Initialize the micromamba shell hook
+# micromamba shell hook
 eval "$(micromamba shell hook --shell=bash)"
 
-# Activate your env by full path
-micromamba activate /work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/MyPythonEnvNew
+micromamba activate "$ENVIRONMENT"
 
-# Run your script
-python /work/FAC/FGSE/IDYST/tbeucler/downscaling/sasthana/Downscaling/Downscaling_Data_Prep/regridding_II.py
+python f"${BASE_DIR}/regridding_II.py"
 
